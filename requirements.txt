@@ -1,0 +1,10 @@
+# Project dependencies for story-to-dialgoue
+transformers # For transformer models from Hugging Face
+datasets     # For dataset handling from Hugging Face
+dotenv       # For environment variable management
+wandb        # For experiment tracking
+evaluate     # For model evaluation
+rouge_score  # For ROUGE evaluation
+sacrebleu    # For BLEU evaluation
+nltk         # For natural language processing
+tqdm         # For progress bars
