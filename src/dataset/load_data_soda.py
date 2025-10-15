@@ -5,7 +5,6 @@ This module contains functions to load and preprocess the SODA dataset for story
 The dataset is created by Kim et al. (2023) and is available at https://huggingface.co/datasets/allenai/soda.
 """
 
-import warnings
 import json
 from datasets import load_dataset, DatasetDict
 from config.dir import SODA_HF_REPO
@@ -63,8 +62,6 @@ class SODADataLoader:
                 "To join dialogue and speakers, both 'dialogue' and 'speakers' must be in use_features or use_features must be ['all'].")
         if join_dialogue_and_speakers and join_narrative_and_speakers:
             raise ValueError("Only one of join_narrative_and_speakers or join_dialogue_and_speakers can be True.")
-        if join_dialogue_and_speakers is None and join_narrative_and_speakers is None:
-            raise warnings.warn("Both join_narrative_and_speakers and join_dialogue_and_speakers are False. No features will be joined.")
              
         # validate story length bounds
         if min_story_length is not None and min_story_length <= 0:

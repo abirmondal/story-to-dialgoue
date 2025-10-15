@@ -5,7 +5,6 @@ This module contains functions to calculate various metrics for evaluating story
 """
 
 import evaluate
-import warnings
 import pandas as pd
 from transformers import AutoTokenizer, EvalPrediction
 from config.dir import PREDICTIONS_DIR
@@ -99,7 +98,6 @@ def save_preds_to_file(refs: list, preds: list, filename: str) -> None:
     data = {"references": refs, "predictions": preds}
     if not PREDICTIONS_DIR.exists():
         PREDICTIONS_DIR.mkdir(parents=True, exist_ok=True)
-        raise warnings.warn(f"The directory {PREDICTIONS_DIR} does not exist. Created the directory.")
     pd.DataFrame(data).to_csv(PREDICTIONS_DIR / filename, index=False)
 
 def get_compute_metrics_function_for_stories(
