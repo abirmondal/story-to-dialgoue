@@ -118,6 +118,8 @@ def get_compute_metrics_function_for_stories(
     """
     if save_preds and (save_preds_filename is None or save_preds_filename.strip() == ""):
         raise ValueError("save_preds_filename must be a non-empty string when save_preds is True.")
+    if save_preds and not save_preds_filename.endswith('.csv'):
+        raise ValueError("save_preds_filename must have a .csv extension.")
 
     def compute_metrics(p: EvalPrediction) -> dict:
         """
