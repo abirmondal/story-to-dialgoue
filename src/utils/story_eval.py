@@ -57,7 +57,7 @@ def compute_metrics_for_stories(references: list, predictions: list, metrics_pre
         raise ValueError("The number of references and predictions must be the same.")
 
     # Compute ROUGE scores
-    rouge_results = rouge.compute(predictions=predictions, references=references)
+    rouge_results = rouge.compute(predictions=predictions, references=references, use_stemmer=True)
     
     # Compute BLEU score
     bleu_results = bleu.compute(predictions=predictions, references=[[ref] for ref in references])
