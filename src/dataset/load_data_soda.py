@@ -17,11 +17,14 @@ class SODADataLoader:
             self,
             data_types: list[str] = ['train', 'test', 'validation'],
             use_features: list[str] = ['narrative', 'dialogue', 'speakers'],
-            percent_of_all_splits: float = 1.0,
+            percent_of_all_splits: int | None = None,
+            samples_per_split: int | None = None,
             random_state: int = 42,
             join_narrative_and_speakers: bool = False,
             join_with: str | None = None,
             join_dialogue_and_speakers: bool = False,
+            add_characters_in_narrative: bool = False,
+            add_turns_count_in_narrative: bool = False,
             min_story_length: int | None = None,
             max_story_length: int | None = None,
             show_dataset_info_after_load: bool = True
@@ -32,10 +35,16 @@ class SODADataLoader:
         Args:
             data_types (list): List of dataset splits to load. Options are `train`, `test`, `validation`.
             use_features (list): List of features to retain from the dataset. For all features, use `['all']`.
-            percent_of_all_splits (float): Percentage of each split to load (between 0 and 1).
+            percent_of_all_splits (int): Percentage of each split to load (between 0 and 100). Default is `None`, which loads the full splits.
+            samples_per_split (int): Number of samples to load per split. If specified, overrides `percent_of_all_splits`. Default is `None`.
             random_state (int): Random seed for reproducibility.
             join_narrative_and_speakers (bool): If `True`, joins the `narrative` and `speakers` features into a single feature.
             join_with (str | None): String to use for joining `narrative` and `speakers` if `join_narrative_and_speakers` is `True`.
+            join_dialogue_and_speakers (bool): If `True`, joins the `dialogue` and `speakers` features into a single feature.
+            add_characters_in_narrative (bool): If `True`, adds character information to the `narrative` feature.
+            add_turns_count_in_narrative (bool): If `True`, adds turn count to the `narrative` feature.
+            min_story_length (int | None): Minimum number of words in the `narrative` feature to retain an example. If `None`, no minimum is applied.
+            max_story_length (int | None): Maximum number of words in the `narrative` feature to retain an example. If `None`, no maximum is applied.
             show_dataset_info_after_load (bool): If `True`, displays dataset information including feature details after loading. Default is `True`.
         """
         if data_types is None or len(data_types) == 0:
@@ -49,9 +58,9 @@ class SODADataLoader:
             raise ValueError("use_features must be a non-empty list of feature names or ['all'].")
         if 'all' in use_features and len(use_features) > 1:
             raise ValueError("If 'all' is specified in use_features, it must be the only entry.")
-        if percent_of_all_splits <= 0 or percent_of_all_splits > 1:
-            raise ValueError(
-                "percent_of_all_splits must be a float between 0 (exclusive) and 1 (inclusive).")
+        if percent_of_all_splits is not None:
+            if percent_of_all_splits <= 0 or percent_of_all_splits > 100:
+                raise ValueError("percent_of_all_splits must be between 1 and 100.")
         if join_narrative_and_speakers and ('speakers' not in use_features or 'narrative' not in use_features or 'all' in use_features):
             raise ValueError(
                 "To join narrative and speakers, both 'narrative' and 'speakers' must be in use_features or use_features must be ['all'].")
@@ -76,8 +85,11 @@ class SODADataLoader:
                 'data_types': data_types,
                 'use_features': use_features,
                 'percent_of_all_splits': percent_of_all_splits,
+                'samples_per_split': samples_per_split,
                 'join_narrative_and_speakers': join_narrative_and_speakers,
                 'join_dialogue_and_speakers': join_dialogue_and_speakers,
+                'add_characters_in_narrative': add_characters_in_narrative,
+                'add_turns_count_in_narrative': add_turns_count_in_narrative,
                 'min_story_length': min_story_length,
                 'max_story_length': max_story_length,
                 'join_with': join_with,
@@ -87,13 +99,15 @@ class SODADataLoader:
         }
 
         # load, filter and preprocess using local params and dataset_info
-        dataset = self.__load_data(features=use_features, percent_of_all_splits=percent_of_all_splits, random_state=random_state)
+        dataset = self.__load_data(splits=data_types, features=use_features, percent_of_all_splits=percent_of_all_splits, samples_per_split=samples_per_split, random_state=random_state)
         dataset = self.__filter_by_story_length(dataset, min_story_length=min_story_length, max_story_length=max_story_length)
         self.dataset = self.__preprocess_data(
             dataset=dataset,
             join_narrative_and_speakers=join_narrative_and_speakers,
             join_with=join_with,
-            join_dialogue_and_speakers=join_dialogue_and_speakers
+            join_dialogue_and_speakers=join_dialogue_and_speakers,
+            add_characters_in_narrative=add_characters_in_narrative,
+            add_turns_count_in_narrative=add_turns_count_in_narrative
         )
 
         # populate minimal metadata (counts, columns). heavy stats are computed lazily on demand
@@ -101,32 +115,33 @@ class SODADataLoader:
         if show_dataset_info_after_load:
             self.show_dataset_info(show_features=True)
 
-    def __load_data(self, features: list[str], percent_of_all_splits: float = 1.0, random_state: int = 42) -> DatasetDict:
+    def __load_data(self, splits: list[str], features: list[str], percent_of_all_splits: int = 100, samples_per_split: int | None = None, random_state: int = 42) -> DatasetDict:
         """
         Loads the SODA dataset from the Hugging Face repository.
 
         Args:
+            splits (list): List of dataset splits to load. Options are `train`, `test`, `validation`.
             features (list): List of features to retain from the dataset. For all features, use `['all']`.
-            percent_of_all_splits (float): Percentage of each split to load (between 0 and 1).
+            percent_of_all_splits (int): Percentage of each split to load (between 0 and 100). Default is 100 (load full splits).
+            samples_per_split (int | None): Number of samples to load per split. If specified, overrides `percent_of_all_splits`. Default is None.
             random_state (int): Random seed for reproducibility.
 
         Returns:
             DatasetDict: A dictionary containing the specified splits of the dataset.
         """
-        dataset = load_dataset(SODA_HF_REPO)
+        dataset = {}
+        for split in splits:
+            if samples_per_split is not None:
+                split_str = f"[:{samples_per_split}]"
+            elif percent_of_all_splits is not None:
+                split_str = f"[:{percent_of_all_splits}%]"
+            else:
+                split_str = ""
+            dataset[split] = load_dataset(SODA_HF_REPO, split=f"{split}{split_str}")
+        dataset = DatasetDict(dataset)
         ds_keys = list(dataset.keys())
 
         for split in ds_keys:
-            if split not in self.dataset_info['params']['data_types']:
-                del dataset[split]
-                continue
-
-            if percent_of_all_splits < 1.0:
-                dataset[split] = dataset[split].train_test_split(
-                    test_size=percent_of_all_splits,
-                    seed=random_state
-                )['test']
-
             if 'all' not in features:
                 dataset[split] = dataset[split].remove_columns([col for col in dataset[split].column_names if col not in features])
 
@@ -137,7 +152,9 @@ class SODADataLoader:
             dataset: DatasetDict,
             join_narrative_and_speakers: bool = False,
             join_with: str | None = None,
-            join_dialogue_and_speakers: bool = False
+            join_dialogue_and_speakers: bool = False,
+            add_characters_in_narrative: bool = False,
+            add_turns_count_in_narrative: bool = False
         ) -> DatasetDict:
         """
         Preprocesses the SODA dataset by selecting specified splits and features, and optionally joining features.
@@ -157,6 +174,22 @@ class SODADataLoader:
                         return example
                     split_data = split_data.map(join_narrative_speakers, remove_columns=['speakers'], desc=f"Joining narrative and speakers for {split} split")
                 
+                if add_characters_in_narrative:
+                    def add_characters(example):
+                        characters = set(example['speakers'])
+                        characters_str = "Characters: " + ", ".join(characters) + ". "
+                        example['narrative'] = example['narrative'] + "\n" + characters_str
+                        return example
+                    split_data = split_data.map(add_characters, desc=f"Adding characters to narrative for {split} split")
+
+                if add_turns_count_in_narrative:
+                    def add_turns_count(example):
+                        num_turns = len(example['dialogue'])
+                        turns_str = f"Dialogue turns: {num_turns}. "
+                        example['narrative'] = example['narrative'] + "\n" + turns_str
+                        return example
+                    split_data = split_data.map(add_turns_count, desc=f"Adding turn count to narrative for {split} split")
+
                 if join_dialogue_and_speakers:
                     def join_dialogue_speakers(example):
                         # create a single string where each utterance is prefixed by its speaker
