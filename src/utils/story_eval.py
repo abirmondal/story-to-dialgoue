@@ -5,6 +5,7 @@ This module contains functions to calculate various metrics for evaluating story
 """
 
 import evaluate
+import numpy as np
 import pandas as pd
 from transformers import AutoTokenizer, EvalPrediction
 from config.dir import PREDICTIONS_DIR
@@ -130,10 +131,15 @@ def get_compute_metrics_function_for_stories(
         Args:
             p (EvalPrediction): An object containing model predictions and label IDs.
         """
-        preds = tokenizer.batch_decode(p.predictions, skip_special_tokens=True)
-        refs = tokenizer.batch_decode(p.label_ids, skip_special_tokens=True)
+        preds = np.where(p.predictions != -100, p.predictions,
+                         tokenizer.pad_token_id)
+        labels = np.where(p.label_ids != -100, p.label_ids,
+                          tokenizer.pad_token_id)
+
+        decoded_preds = tokenizer.batch_decode(preds, skip_special_tokens=True)
+        decoded_labels = tokenizer.batch_decode(labels, skip_special_tokens=True)
         if save_preds:
-            save_preds_to_file(refs, preds, save_preds_filename)
-        return compute_metrics_for_stories(refs, preds, metrics_prefix)
+            save_preds_to_file(decoded_labels, decoded_preds, save_preds_filename)
+        return compute_metrics_for_stories(decoded_labels, decoded_preds, metrics_prefix)
 
     return compute_metrics

@@ -115,7 +115,7 @@ class SODADataLoader:
         if show_dataset_info_after_load:
             self.show_dataset_info(show_features=True)
 
-    def __load_data(self, splits: list[str], features: list[str], percent_of_all_splits: int = 100, samples_per_split: int | None = None, random_state: int = 42) -> DatasetDict:
+    def __load_data(self, splits: list[str], features: list[str], percent_of_all_splits: int = 100, samples_per_split: int | None = None) -> DatasetDict:
         """
         Loads the SODA dataset from the Hugging Face repository.
 
@@ -124,7 +124,6 @@ class SODADataLoader:
             features (list): List of features to retain from the dataset. For all features, use `['all']`.
             percent_of_all_splits (int): Percentage of each split to load (between 0 and 100). Default is 100 (load full splits).
             samples_per_split (int | None): Number of samples to load per split. If specified, overrides `percent_of_all_splits`. Default is None.
-            random_state (int): Random seed for reproducibility.
 
         Returns:
             DatasetDict: A dictionary containing the specified splits of the dataset.
