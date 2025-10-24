@@ -19,7 +19,6 @@ class SODADataLoader:
             use_features: list[str] = ['narrative', 'dialogue', 'speakers'],
             percent_of_all_splits: int | None = None,
             samples_per_split: int | None = None,
-            random_state: int = 42,
             join_narrative_and_speakers: bool = False,
             join_with: str | None = None,
             join_dialogue_and_speakers: bool = False,
@@ -37,7 +36,6 @@ class SODADataLoader:
             use_features (list): List of features to retain from the dataset. For all features, use `['all']`.
             percent_of_all_splits (int): Percentage of each split to load (between 0 and 100). Default is `None`, which loads the full splits.
             samples_per_split (int): Number of samples to load per split. If specified, overrides `percent_of_all_splits`. Default is `None`.
-            random_state (int): Random seed for reproducibility.
             join_narrative_and_speakers (bool): If `True`, joins the `narrative` and `speakers` features into a single feature.
             join_with (str | None): String to use for joining `narrative` and `speakers` if `join_narrative_and_speakers` is `True`.
             join_dialogue_and_speakers (bool): If `True`, joins the `dialogue` and `speakers` features into a single feature.
@@ -93,13 +91,12 @@ class SODADataLoader:
                 'min_story_length': min_story_length,
                 'max_story_length': max_story_length,
                 'join_with': join_with,
-                'random_state': random_state,
             },
             'splits': {}
         }
 
         # load, filter and preprocess using local params and dataset_info
-        dataset = self.__load_data(splits=data_types, features=use_features, percent_of_all_splits=percent_of_all_splits, samples_per_split=samples_per_split, random_state=random_state)
+        dataset = self.__load_data(splits=data_types, features=use_features, percent_of_all_splits=percent_of_all_splits, samples_per_split=samples_per_split)
         dataset = self.__filter_by_story_length(dataset, min_story_length=min_story_length, max_story_length=max_story_length)
         self.dataset = self.__preprocess_data(
             dataset=dataset,
