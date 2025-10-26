@@ -11,3 +11,4 @@ nltk            # For natural language processing
 tqdm            # For progress bars
 langchain       # For language model chaining
 langchain[groq] # For GROQ support
+peft            # For parameter-efficient fine-tuning (used for LoRA finetuning)
