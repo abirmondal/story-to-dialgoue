@@ -200,7 +200,10 @@ class SODADataLoader:
                                 new_narr = context + f"{speaker}:"
 
                                 # The dialogue is the current utterance
-                                new_diag = utterance + separator_token
+                                if speaker == speakers[-1] and utterance == utterances[-1]:
+                                    new_diag = utterance + DIALOGUE_END_TOKEN
+                                else:
+                                    new_diag = utterance + separator_token
 
                                 new_narratives.append(new_narr)
                                 new_dialogues.append(new_diag)
