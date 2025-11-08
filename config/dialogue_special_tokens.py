@@ -1,0 +1,2 @@
+DIALOGUE_END_TOKEN = "<end_of_dialogue>" # Token indicating the end of a dialogue session
+DEFAULT_SEPARATOR_TOKEN = "</s>" # Default token used to separate different parts of the dialogue. This is the separator of BART and T5 models.
