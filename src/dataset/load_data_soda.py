@@ -8,6 +8,7 @@ The dataset is created by Kim et al. (2023) and is available at https://huggingf
 import json
 from datasets import load_dataset, DatasetDict
 from config.dir import SODA_HF_REPO
+from config.dialogue_special_tokens import DIALOGUE_END_TOKEN, DEFAULT_SEPARATOR_TOKEN
 
 class SODADataLoader:
     """
@@ -21,6 +22,8 @@ class SODADataLoader:
             samples_per_split: int | None = None,
             join_narrative_and_speakers: bool = False,
             join_with: str | None = None,
+            unroll_dialogue_and_speakers: bool = False,
+            separator_token: str = DEFAULT_SEPARATOR_TOKEN,
             join_dialogue_and_speakers: bool = False,
             add_characters_in_narrative: bool = False,
             add_turns_count_in_narrative: bool = False,
@@ -38,6 +41,8 @@ class SODADataLoader:
             samples_per_split (int): Number of samples to load per split. If specified, overrides `percent_of_all_splits`. Default is `None`.
             join_narrative_and_speakers (bool): If `True`, joins the `narrative` and `speakers` features into a single feature.
             join_with (str | None): String to use for joining `narrative` and `speakers` if `join_narrative_and_speakers` is `True`.
+            unroll_dialogue_and_speakers (bool): If `True`, creates separate examples for each dialogue turn with corresponding speaker in the narrative. Default is `False`. If `True`, `join_dialogue_and_speakers` must be `False`.
+            separator_token (str | None): The separator token to use to join features. Default is `DEFAULT_SEPARATOR_TOKEN` set in `config/dialogue_special_tokens.py`.
             join_dialogue_and_speakers (bool): If `True`, joins the `dialogue` and `speakers` features into a single feature.
             add_characters_in_narrative (bool): If `True`, adds character information to the `narrative` feature.
             add_turns_count_in_narrative (bool): If `True`, adds turn count to the `narrative` feature.
@@ -59,6 +64,11 @@ class SODADataLoader:
         if percent_of_all_splits is not None:
             if percent_of_all_splits <= 0 or percent_of_all_splits > 100:
                 raise ValueError("percent_of_all_splits must be between 1 and 100.")
+        if unroll_dialogue_and_speakers and join_dialogue_and_speakers:
+            raise ValueError("Only one of unroll_dialogue_and_speakers or join_dialogue_and_speakers can be True.")
+        if unroll_dialogue_and_speakers and ('narrative' not in use_features or 'dialogue' not in use_features or 'speakers' not in use_features or 'all' in use_features):
+            raise ValueError(
+                "To unroll dialogue and speakers, all of 'narrative', 'dialogue', and 'speakers' must be in use_features or use_features must be ['all'].")
         if join_narrative_and_speakers and ('speakers' not in use_features or 'narrative' not in use_features or 'all' in use_features):
             raise ValueError(
                 "To join narrative and speakers, both 'narrative' and 'speakers' must be in use_features or use_features must be ['all'].")
@@ -84,13 +94,15 @@ class SODADataLoader:
                 'use_features': use_features,
                 'percent_of_all_splits': percent_of_all_splits,
                 'samples_per_split': samples_per_split,
+                'unroll_dialogue_and_speakers': unroll_dialogue_and_speakers,
+                'separator_token': separator_token,
                 'join_narrative_and_speakers': join_narrative_and_speakers,
                 'join_dialogue_and_speakers': join_dialogue_and_speakers,
                 'add_characters_in_narrative': add_characters_in_narrative,
                 'add_turns_count_in_narrative': add_turns_count_in_narrative,
                 'min_story_length': min_story_length,
                 'max_story_length': max_story_length,
-                'join_with': join_with,
+                'join_with': join_with
             },
             'splits': {}
         }
@@ -100,6 +112,8 @@ class SODADataLoader:
         dataset = self.__filter_by_story_length(dataset, min_story_length=min_story_length, max_story_length=max_story_length)
         self.dataset = self.__preprocess_data(
             dataset=dataset,
+            unroll_dialogue_and_speakers=unroll_dialogue_and_speakers,
+            separator_token=separator_token,
             join_narrative_and_speakers=join_narrative_and_speakers,
             join_with=join_with,
             join_dialogue_and_speakers=join_dialogue_and_speakers,
@@ -146,6 +160,8 @@ class SODADataLoader:
     def __preprocess_data(
             self,
             dataset: DatasetDict,
+            unroll_dialogue_and_speakers: bool = False,
+            separator_token: str = DEFAULT_SEPARATOR_TOKEN,
             join_narrative_and_speakers: bool = False,
             join_with: str | None = None,
             join_dialogue_and_speakers: bool = False,
@@ -163,6 +179,39 @@ class SODADataLoader:
         for split in self.dataset_info['params']['data_types']:
             if split in dataset:
                 split_data = dataset[split]
+
+                if unroll_dialogue_and_speakers:
+                    def unroll_dialogue_speakers(example):
+                        """
+                        Transforms a single dataset example with full lists into multiple
+                        examples, one for each dialogue turn, with history.
+                        """
+                        new_narratives = []
+                        new_dialogues = []
+
+                        for narrative, speakers, utterances in zip(example['narrative'], example['speakers'], example['dialogue']):
+                            # Initialize the context with the base narrative
+                            context = narrative + separator_token
+
+                            # Iterate through each speaker-dialogue pair
+                            for speaker, utterance in zip(speakers, utterances):
+                                # 1. Create the new example for this turn
+                                # The narrative is the context *before* this turn, plus the new speaker
+                                new_narr = context + f"{speaker}:"
+
+                                # The dialogue is the current utterance
+                                new_diag = utterance + separator_token
+
+                                new_narratives.append(new_narr)
+                                new_dialogues.append(new_diag)
+
+                                # 2. Update the context for the *next* turn
+                                # The context now includes what was just said
+                                context += f"{speaker}: {utterance}{separator_token}"
+
+                        return {"narrative": new_narratives, "dialogue": new_dialogues}
+                    split_data = split_data.map(unroll_dialogue_speakers, remove_columns=['speakers'], desc=f"Unrolling dialogue and speakers for {split} split", batched=True)
+                        
                 
                 if join_narrative_and_speakers:
                     def join_narrative_speakers(example):
