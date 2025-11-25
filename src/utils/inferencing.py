@@ -44,10 +44,14 @@ class HFModelForInferencing:
                 "Consider setting 'is_lora=True' to ensure proper loading."
             )
         self.peft_model_repo_name = peft_model_repo_name
+        if hf_commit_hash is None:
+            hf_commit_hash = "main"
         self.commit_hash = hf_commit_hash
 
-        self.tokenizer = AutoTokenizer.from_pretrained(self.peft_model_repo_name, use_fast=True, revision=hf_commit_hash)
         if self.is_lora and self.peft_model_repo_name:
+            self.tokenizer = AutoTokenizer.from_pretrained(
+                self.peft_model_repo_name, use_fast=True, revision=hf_commit_hash)
+            
             base_model = AutoModelForSeq2SeqLM.from_pretrained(
                 hf_model_repo_name,
                 device_map="auto" if self.device == "cuda" else None,
@@ -61,6 +65,9 @@ class HFModelForInferencing:
             )
             self.model = peft_model.merge_and_unload()
         else:
+            self.tokenizer = AutoTokenizer.from_pretrained(
+                hf_model_repo_name, use_fast=True, revision=hf_commit_hash)
+            
             self.model = AutoModelForSeq2SeqLM.from_pretrained(
                 hf_model_repo_name,
                 revision=hf_commit_hash,
