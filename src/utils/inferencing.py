@@ -25,7 +25,6 @@ class HFModelForInferencing:
             is_lora: bool = False,
             peft_model_repo_name: str | None = None,
             hf_commit_hash: str | None = None,
-            torch_dtype: torch.dtype = torch.float32,
     ) -> None:
         """
         Initializes the HFModelForInferencing class.
@@ -35,7 +34,6 @@ class HFModelForInferencing:
             is_lora (bool): Flag indicating if a LoRA model is used. Defaults to False.
             peft_model_repo_name (str | None): PEFT model repository name. Defaults to None.
             hf_commit_hash (str | None): Specific commit hash for the HuggingFace model. Defaults to None.
-            torch_dtype (torch.dtype): Torch data type for model loading. Defaults to torch.float32.
         """
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.model_repo_name = hf_model_repo_name
@@ -47,18 +45,11 @@ class HFModelForInferencing:
             )
         self.peft_model_repo_name = peft_model_repo_name
         self.commit_hash = hf_commit_hash
-        if self.device == "cuda" and torch_dtype != torch.float16:
-            warnings.warn(
-                f"Using device 'cuda' with torch_dtype '{torch_dtype}'. "
-                "For optimal performance on CUDA, consider using torch.float16."
-            )
-        self.torch_dtype = torch_dtype
 
         self.tokenizer = AutoTokenizer.from_pretrained(self.peft_model_repo_name, use_fast=True, revision=hf_commit_hash)
         if self.is_lora and self.peft_model_repo_name:
             base_model = AutoModelForSeq2SeqLM.from_pretrained(
                 hf_model_repo_name,
-                dtype=torch_dtype,
                 device_map="auto" if self.device == "cuda" else None,
             )
             base_model.resize_token_embeddings(len(self.tokenizer))
@@ -66,7 +57,6 @@ class HFModelForInferencing:
                 base_model,
                 self.peft_model_repo_name,
                 revision=hf_commit_hash,
-                dtype=torch_dtype,
                 device_map="auto" if self.device == "cuda" else None,
             )
             self.model = peft_model.merge_and_unload()
@@ -74,7 +64,6 @@ class HFModelForInferencing:
             self.model = AutoModelForSeq2SeqLM.from_pretrained(
                 hf_model_repo_name,
                 revision=hf_commit_hash,
-                dtype=torch_dtype,
                 device_map="auto" if self.device == "cuda" else None,
             )
         self.model.to(self.device)
