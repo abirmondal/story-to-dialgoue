@@ -6,6 +6,7 @@ The dataset is created by Kim et al. (2023) and is available at https://huggingf
 """
 
 import json
+import random
 from datasets import load_dataset, DatasetDict
 from config.dir import SODA_HF_REPO
 from config.dialogue_special_tokens import DIALOGUE_END_TOKEN, DEFAULT_SEPARATOR_TOKEN
@@ -352,7 +353,13 @@ class SODADataLoader:
         self._dialogue_stats_cache: dict[str, dict] = {}
 
     def _get_story_stats(self, split: str) -> dict | None:
-        """Compute (and cache) min/max story word counts for a split. Returns dict or None if not applicable."""
+        """
+        Compute (and cache) min/max story word counts for a split.
+
+        Returns:
+            dict: A dictionary with 'min' and 'max' keys for word counts, or None if not applicable.
+            None if the split does not exist or does not contain 'narrative' feature.
+        """
         if split in self._story_stats_cache:
             return self._story_stats_cache[split]
         if split not in self.dataset:
@@ -489,3 +496,45 @@ class SODADataLoader:
                         print(f"Minimum dialogue word count: {d_stats['min']}")
                         print(f"Maximum dialogue word count: {d_stats['max']}")
             print("-" * 40)
+
+    def suffle_dataset(self, seed: int = 42) -> None:
+        """
+        Shuffles the dataset in place.
+
+        Args:
+            seed (int): Random seed for shuffling. Default is 42.
+        """
+        for split in self.dataset.keys():
+            self.dataset[split] = self.dataset[split].shuffle(seed=seed)
+            # reset caches since shuffling changes the order of examples
+            self._story_stats_cache.clear()
+            self._dialogue_stats_cache.clear()
+
+    def duplicate_eod_examples(self, min_dupl: int = 3, max_dupl: int = 5) -> None:
+        """
+        Duplicates examples in the dataset for the train split that end with the dialogue end token.
+
+        Args:
+            min_dupl (int): Minimum number of times to duplicate each example. Default is 3.
+            max_dupl (int): Maximum number of times to duplicate each example. Default is 5.
+        """
+        split = 'train'
+        if split not in self.dataset:
+            raise ValueError("Train split not found in dataset.")
+
+        def duplicate_eod_examples(batch):
+            duplicated_batch = {key: [] for key in batch.keys()}
+            for i in range(len(batch['dialogue'])):
+                example = {key: batch[key][i] for key in batch.keys()}
+                if example['dialogue'].endswith(DIALOGUE_END_TOKEN):
+                    num_duplicates = random.randint(min_dupl, max_dupl)
+                else:
+                    num_duplicates = 1
+                for _ in range(num_duplicates):
+                    for key in batch.keys():
+                        duplicated_batch[key].append(example[key])
+            return duplicated_batch
+        self.dataset[split] = self.dataset[split].map(duplicate_eod_examples, batched=True, desc="Duplicating EOD examples in train split")
+        # reset caches since duplication changes the dataset
+        self._story_stats_cache.clear()
+        self._dialogue_stats_cache.clear()
