@@ -7,6 +7,7 @@ wandb           # For experiment tracking
 evaluate        # For model evaluation
 rouge_score     # For ROUGE evaluation
 sacrebleu       # For BLEU evaluation
+bert-score      # For BERTScore evaluation
 nltk            # For natural language processing
 tqdm            # For progress bars
 langchain       # For language model chaining
