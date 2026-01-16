@@ -91,9 +91,6 @@ def compute_metrics_for_stories(
         - bleu3 (float): BLEU-3 score.
         - bleu4 (float): BLEU-4 score.
         - meteor (float): METEOR score.
-        - distinct_1 (float): Distinct-1 score.
-        - distinct_2 (float): Distinct-2 score.
-        - distinct_3 (float): Distinct-3 score.
         - avg_distinct_1 (float): Average Distinct-1 score.
         - avg_distinct_2 (float): Average Distinct-2 score.
         - avg_distinct_3 (float): Average Distinct-3 score.
@@ -174,9 +171,6 @@ def compute_metrics_for_stories(
         metrics_prefix + 'bleu3': bleu_results['precisions'][2],
         metrics_prefix + 'bleu4': bleu_results['precisions'][3],
         metrics_prefix + 'meteor': meteor_results['meteor'],
-        metrics_prefix + 'distinct_1': distinct_1_scores,
-        metrics_prefix + 'distinct_2': distinct_2_scores,
-        metrics_prefix + 'distinct_3': distinct_3_scores,
         metrics_prefix + 'avg_distinct_1': avg_distinct_1,
         metrics_prefix + 'avg_distinct_2': avg_distinct_2,
         metrics_prefix + 'avg_distinct_3': avg_distinct_3,
