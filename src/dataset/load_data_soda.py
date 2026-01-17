@@ -521,6 +521,11 @@ class SODADataLoader:
         split = 'train'
         if split not in self.dataset:
             raise ValueError("Train split not found in dataset.")
+        
+        self.dataset_info['params'].update({
+            'min_eod_duplication': min_dupl,
+            'max_eod_duplication': max_dupl
+        })
 
         def duplicate_eod_examples(batch):
             duplicated_batch = {key: [] for key in batch.keys()}
