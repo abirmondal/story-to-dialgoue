@@ -156,18 +156,23 @@ class HFModelForInferencing:
 
                     generated_text = self.tokenizer.decode(output_ids[0], skip_special_tokens=skip_special_tokens)
 
-                    if DIALOGUE_END_TOKEN in generated_text:
-                        # Model wants to end the dialogue
-                        cleaned_turn = generated_text.split(DIALOGUE_END_TOKEN)[0].strip()
-                        full_dialogue_output += f"{current_character}: " + \
-                            cleaned_turn + "\n"
-                        break
-                    elif self.tokenizer.eos_token and self.tokenizer.eos_token in generated_text:
-                        # Model finished a normal turn
-                        cleaned_turn = generated_text.split(self.tokenizer.eos_token)[0].strip()
+                    if skip_special_tokens == False:
+                        # When not skipping special tokens, we need to handle the dialogue end token
+                        cleaned_turn = generated_text
                     else:
-                        # Model hit max tokens without stop token
-                        cleaned_turn = generated_text.strip()
+                        # When skipping special tokens, we need to check for dialogue end token manually
+                        if DIALOGUE_END_TOKEN in generated_text:
+                            # Model wants to end the dialogue
+                            cleaned_turn = generated_text.split(DIALOGUE_END_TOKEN)[0].strip()
+                            full_dialogue_output += f"{current_character}: " + \
+                                cleaned_turn + "\n"
+                            break
+                        elif self.tokenizer.eos_token and self.tokenizer.eos_token in generated_text:
+                            # Model finished a normal turn
+                            cleaned_turn = generated_text.split(self.tokenizer.eos_token)[0].strip()
+                        else:
+                            # Model hit max tokens without stop token
+                            cleaned_turn = generated_text.strip()
 
                     full_dialogue_output += f"{current_character}: " + \
                         cleaned_turn + "\n"
