@@ -533,6 +533,11 @@ class SODADataLoader:
             min_dupl (int): Minimum number of times to duplicate each example. Default is 3.
             max_dupl (int): Maximum number of times to duplicate each example. Default is 5.
         """
+        if self.dataset_info['params']['use_eos_as_eod']:
+            raise ValueError("Cannot duplicate EOD examples when use_eos_as_eod is True.")
+        if self.dataset_info['params']['data_types'] is None or 'train' not in self.dataset_info['params']['data_types']:
+            raise ValueError("Train split must be loaded to duplicate EOD examples.")
+
         split = 'train'
         if split not in self.dataset:
             raise ValueError("Train split not found in dataset.")
