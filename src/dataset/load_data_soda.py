@@ -24,6 +24,7 @@ class SODADataLoader:
             join_narrative_and_speakers: bool = False,
             join_with: str | None = None,
             unroll_dialogue_and_speakers: bool = False,
+            use_eos_as_eod: bool = False,
             separator_token: str = DEFAULT_SEPARATOR_TOKEN,
             join_dialogue_and_speakers: bool = False,
             add_characters_in_narrative: bool = False,
@@ -43,6 +44,7 @@ class SODADataLoader:
             join_narrative_and_speakers (bool): If `True`, joins the `narrative` and `speakers` features into a single feature.
             join_with (str | None): String to use for joining `narrative` and `speakers` if `join_narrative_and_speakers` is `True`.
             unroll_dialogue_and_speakers (bool): If `True`, creates separate examples for each dialogue turn with corresponding speaker in the narrative. Default is `False`. If `True`, `join_dialogue_and_speakers` must be `False`.
+            use_eos_as_eod (bool): If `True`, uses the end-of-sequence token as the dialogue end token. Default is `False`. It can only be `True` when `unroll_dialogue_and_speakers` is `True`.
             separator_token (str | None): The separator token to use to join features. Default is `DEFAULT_SEPARATOR_TOKEN` set in `config/dialogue_special_tokens.py`.
             join_dialogue_and_speakers (bool): If `True`, joins the `dialogue` and `speakers` features into a single feature.
             add_characters_in_narrative (bool): If `True`, adds character information to the `narrative` feature.
@@ -70,6 +72,8 @@ class SODADataLoader:
         if unroll_dialogue_and_speakers and ('narrative' not in use_features or 'dialogue' not in use_features or 'speakers' not in use_features or 'all' in use_features):
             raise ValueError(
                 "To unroll dialogue and speakers, all of 'narrative', 'dialogue', and 'speakers' must be in use_features or use_features must be ['all'].")
+        if use_eos_as_eod and unroll_dialogue_and_speakers == False:
+            raise ValueError("use_eos_as_eod can only be True when unroll_dialogue_and_speakers is True.")
         if join_narrative_and_speakers and ('speakers' not in use_features or 'narrative' not in use_features or 'all' in use_features):
             raise ValueError(
                 "To join narrative and speakers, both 'narrative' and 'speakers' must be in use_features or use_features must be ['all'].")
@@ -96,6 +100,7 @@ class SODADataLoader:
                 'percent_of_all_splits': percent_of_all_splits,
                 'samples_per_split': samples_per_split,
                 'unroll_dialogue_and_speakers': unroll_dialogue_and_speakers,
+                'use_eos_as_eod': use_eos_as_eod,
                 'separator_token': separator_token,
                 'join_narrative_and_speakers': join_narrative_and_speakers,
                 'join_dialogue_and_speakers': join_dialogue_and_speakers,
@@ -114,6 +119,7 @@ class SODADataLoader:
         self.dataset = self.__preprocess_data(
             dataset=dataset,
             unroll_dialogue_and_speakers=unroll_dialogue_and_speakers,
+            use_eos_as_eod=use_eos_as_eod,
             separator_token=separator_token,
             join_narrative_and_speakers=join_narrative_and_speakers,
             join_with=join_with,
@@ -162,6 +168,7 @@ class SODADataLoader:
             self,
             dataset: DatasetDict,
             unroll_dialogue_and_speakers: bool = False,
+            use_eos_as_eod: bool = False,
             separator_token: str = DEFAULT_SEPARATOR_TOKEN,
             join_narrative_and_speakers: bool = False,
             join_with: str | None = None,
@@ -190,6 +197,11 @@ class SODADataLoader:
                         new_narratives = []
                         new_dialogues = []
 
+                        if use_eos_as_eod:
+                            # Append an extra turn with the last speaker and empty dialogue if using EOS as EOD
+                            example['speakers'][0].append(example['speakers'][0][-2])
+                            example['dialogue'][0].append("")
+
                         for narrative, speakers, utterances in zip(example['narrative'], example['speakers'], example['dialogue']):
                             # Initialize the context with the base narrative
                             context = narrative + separator_token
@@ -202,7 +214,10 @@ class SODADataLoader:
 
                                 # The dialogue is the current utterance
                                 if speaker == speakers[-1] and utterance == utterances[-1]:
-                                    new_diag = utterance + DIALOGUE_END_TOKEN
+                                    if use_eos_as_eod:
+                                        new_diag = utterance
+                                    else:
+                                        new_diag = utterance + DIALOGUE_END_TOKEN
                                 else:
                                     new_diag = utterance + separator_token
 
