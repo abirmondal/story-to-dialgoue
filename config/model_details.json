@@ -3,19 +3,19 @@
         "turn-by-turn": {
             "hf-commit-id": "5d671360acad574afac587e3b8e893a7e12ed631",
             "hf-org-model-path": "facebook/bart-base",
-            "hf-ft-model-path": "abirmondalind/story2dialogue-SODA-BERT-LoRA"
+            "hf-ft-model-path": "abirmondalind/story2dialogue-SODA-BART-LoRA"
         },
         "full-dialogue": {
             "hf-commit-id": "68e6e0c706c3eab97507bb61183f5f359b5cce68",
             "hf-org-model-path": "facebook/bart-base",
-            "hf-ft-model-path": "abirmondalind/story2dialogue-SODA-BERT-LoRA"
+            "hf-ft-model-path": "abirmondalind/story2dialogue-SODA-BART-LoRA"
         }
     },
     "BART-FT": {
         "full-dialogue": {
             "hf-commit-id": "8f6610524c8eefbd63c2cb1ef86283c5c36b939a",
             "hf-org-model-path": "facebook/bart-base",
-            "hf-ft-model-path": "abirmondalind/story2dialogue-SODA-BERT"
+            "hf-ft-model-path": "abirmondalind/story2dialogue-SODA-BART"
         }
     },
     "T5-LoRA": {
