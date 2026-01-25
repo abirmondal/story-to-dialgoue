@@ -8,12 +8,10 @@ import torch
 import warnings
 from transformers import (
     AutoModelForSeq2SeqLM,
-    AutoTokenizer,
-    StoppingCriteria,
-    StoppingCriteriaList
+    AutoTokenizer
 )
 from peft import PeftModel
-from config.dialogue_special_tokens import update_sep_token, DIALOGUE_END_TOKEN, DEFAULT_SEPARATOR_TOKEN
+from config.dialogue_special_tokens import DIALOGUE_END_TOKEN, DEFAULT_SEPARATOR_TOKEN
 
 class HFModelForInferencing:
     """
