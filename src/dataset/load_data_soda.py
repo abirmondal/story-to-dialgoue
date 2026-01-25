@@ -7,7 +7,7 @@ The dataset is created by Kim et al. (2023) and is available at https://huggingf
 
 import json
 import random
-from datasets import load_dataset, DatasetDict
+from datasets import load_dataset, load_dataset_builder, DatasetDict
 from config.dir import SODA_HF_REPO
 from config.dialogue_special_tokens import DIALOGUE_END_TOKEN, DEFAULT_SEPARATOR_TOKEN
 
@@ -19,7 +19,7 @@ class SODADataLoader:
             self,
             data_types: list[str] = ['train', 'test', 'validation'],
             use_features: list[str] = ['narrative', 'dialogue', 'speakers'],
-            percent_of_all_splits: int | None = None,
+            percent_of_all_splits: float | None = None,
             samples_per_split: int | None = None,
             join_narrative_and_speakers: bool = False,
             join_with: str | None = None,
@@ -39,8 +39,8 @@ class SODADataLoader:
         Args:
             data_types (list): List of dataset splits to load. Options are `train`, `test`, `validation`.
             use_features (list): List of features to retain from the dataset. For all features, use `['all']`.
-            percent_of_all_splits (int): Percentage of each split to load (between 0 and 100). Default is `None`, which loads the full splits.
-            samples_per_split (int): Number of samples to load per split. If specified, overrides `percent_of_all_splits`. Default is `None`.
+            percent_of_all_splits (float | None): Percentage of each split to load (between 0 and 100). Default is `None`, which loads the full splits.
+            samples_per_split (int | None): Number of samples to load per split. If specified, overrides `percent_of_all_splits`. Default is `None`.
             join_narrative_and_speakers (bool): If `True`, joins the `narrative` and `speakers` features into a single feature.
             join_with (str | None): String to use for joining `narrative` and `speakers` if `join_narrative_and_speakers` is `True`.
             unroll_dialogue_and_speakers (bool): If `True`, creates separate examples for each dialogue turn with corresponding speaker in the narrative. Default is `False`. If `True`, `join_dialogue_and_speakers` must be `False`.
@@ -133,15 +133,15 @@ class SODADataLoader:
         if show_dataset_info_after_load:
             self.show_dataset_info(show_features=True)
 
-    def __load_data(self, splits: list[str], features: list[str], percent_of_all_splits: int = 100, samples_per_split: int | None = None) -> DatasetDict:
+    def __load_data(self, splits: list[str], features: list[str], percent_of_all_splits: float | None = None, samples_per_split: int | None = None) -> DatasetDict:
         """
         Loads the SODA dataset from the Hugging Face repository.
 
         Args:
             splits (list): List of dataset splits to load. Options are `train`, `test`, `validation`.
             features (list): List of features to retain from the dataset. For all features, use `['all']`.
-            percent_of_all_splits (int): Percentage of each split to load (between 0 and 100). Default is 100 (load full splits).
-            samples_per_split (int | None): Number of samples to load per split. If specified, overrides `percent_of_all_splits`. Default is None.
+            percent_of_all_splits (float | None): Percentage of each split to load (between 0 and 100). Default is `None`.
+            samples_per_split (int | None): Number of samples to load per split. If specified, overrides `percent_of_all_splits`. Default is `None`.
 
         Returns:
             DatasetDict: A dictionary containing the specified splits of the dataset.
@@ -151,7 +151,10 @@ class SODADataLoader:
             if samples_per_split is not None:
                 split_str = f"[:{samples_per_split}]"
             elif percent_of_all_splits is not None:
-                split_str = f"[:{percent_of_all_splits}%]"
+                ds_builder = load_dataset_builder(SODA_HF_REPO)
+                total_num_samples = ds_builder.info.splits[split].num_examples
+                num_samples_to_load = int((percent_of_all_splits / 100) * total_num_samples)
+                split_str = f"[:{num_samples_to_load}]"
             else:
                 split_str = ""
             dataset[split] = load_dataset(SODA_HF_REPO, split=f"{split}{split_str}")
