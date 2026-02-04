@@ -7,7 +7,9 @@ The dataset is created by Kim et al. (2023) and is available at https://huggingf
 
 import json
 import random
-from datasets import load_dataset, load_dataset_builder, DatasetDict
+# from unsloth.chat_templates import get_chat_template
+from transformers import AutoTokenizer
+from datasets import load_dataset, load_dataset_builder, DatasetDict, Dataset
 from config.dir import SODA_HF_REPO
 from config.dialogue_special_tokens import DIALOGUE_END_TOKEN, DEFAULT_SEPARATOR_TOKEN
 
@@ -31,7 +33,8 @@ class SODADataLoader:
             add_turns_count_in_narrative: bool = False,
             min_story_length: int | None = None,
             max_story_length: int | None = None,
-            show_dataset_info_after_load: bool = True
+            show_dataset_info_after_load: bool = True,
+            tokenizer: AutoTokenizer | None = None
         ) -> None:
         """
         Initializes the SODADataLoader with specified parameters.
@@ -52,6 +55,7 @@ class SODADataLoader:
             min_story_length (int | None): Minimum number of words in the `narrative` feature to retain an example. If `None`, no minimum is applied.
             max_story_length (int | None): Maximum number of words in the `narrative` feature to retain an example. If `None`, no maximum is applied.
             show_dataset_info_after_load (bool): If `True`, displays dataset information including feature details after loading. Default is `True`.
+            tokenizer (AutoTokenizer | None): Optional tokenizer to use for formatting prompts. If `None`, no prompt formatting is applied.
         """
         if data_types is None or len(data_types) == 0:
             raise ValueError("data_types must be a non-empty list containing any of 'train', 'test', 'validation'.")
@@ -566,3 +570,93 @@ class SODADataLoader:
         # reset caches since duplication changes the dataset
         self._story_stats_cache.clear()
         self._dialogue_stats_cache.clear()
+
+    def set_tokenizer(self, tokenizer: AutoTokenizer) -> None:
+        """
+        Sets the tokenizer for the data loader.
+
+        Args:
+            tokenizer (AutoTokenizer): The tokenizer to set.
+        """
+        self.tokenizer = tokenizer
+
+    def set_chat_template(self, chat_template: str = "llama-3") -> None:
+        """
+        Sets the chat template for the data loader.
+
+        Args:
+            chat_template (str): The chat template to set.
+        """
+        self.chat_template = chat_template
+        self.dataset_info['params']['chat_template'] = chat_template
+
+    def __get_chat_template(self, narrative: str, dialogue: str, keep_assistance: bool = True) -> list:
+        """
+        Retrieves the chat template based on the specified type.
+
+        Args:
+            narrative (str): The narrative text.
+            dialogue (str): The dialogue text.
+            keep_assistance (bool): Whether to keep the assistance role in the template.
+
+        Returns:
+            list: The chat template as a list of dictionaries.
+        """
+        template = [
+            {"role": "system", "content": "Convert this story into a dialogue."},
+            {"role": "user", "content": f"Narrative: {narrative}"},
+            {"role": "assistant", "content": dialogue}
+        ]
+        if not keep_assistance:
+            template = template[:-1]
+        return template        
+
+    def formatting_prompts(self, examples: Dataset) -> dict:
+        """
+        Applies LLaMA-style chat formatting to the dataset. Not used on test dataset.
+
+        Args:
+            examples (Dataset): The dataset examples to format.
+
+        Returns:
+            dict: A dictionary containing the formatted texts, with key 'text'.
+        """
+        if self.tokenizer is None:
+            raise ValueError("Tokenizer must be provided to apply LLaMA chat formatting.")
+
+        texts = [] # Store formatted texts
+        
+        for narrative, dialogue in zip(examples['narrative'], examples['dialogue']):
+            text = self.tokenizer.apply_chat_template(
+                self.__get_chat_template(narrative, dialogue, keep_assistance=False),
+                tokenize=False,
+                add_generation_prompt=False
+            )
+            texts.append(text)
+
+        return {"text": texts}
+    
+    def formatting_prompts_test(self, examples: Dataset) -> dict:
+        """
+        Applies LLaMA-style chat formatting to the dataset. Only used on test dataset.
+
+        Args:
+            examples (Dataset): The dataset examples to format.
+
+        Returns:
+            dict: A dictionary containing the formatted texts, with key 'text'.
+        """
+        if self.tokenizer is None:
+            raise ValueError("Tokenizer must be provided to apply LLaMA chat formatting.")
+
+        texts = [] # Store formatted texts
+        
+        for narrative, dialogue in zip(examples['narrative'], examples['dialogue']):
+            text = self.tokenizer.apply_chat_template(
+                self.__get_chat_template(narrative, dialogue, keep_assistance=True),
+                tokenize=False,
+                add_generation_prompt=True
+            )
+            texts.append(text)
+
+        return {"text": texts}
