@@ -627,7 +627,7 @@ class SODADataLoader:
         
         for narrative, dialogue in zip(examples['narrative'], examples['dialogue']):
             text = self.tokenizer.apply_chat_template(
-                self.__get_chat_template(narrative, dialogue, keep_assistance=False),
+                self.__get_chat_template(narrative, dialogue, keep_assistance=True),
                 tokenize=False,
                 add_generation_prompt=False
             )
@@ -652,7 +652,7 @@ class SODADataLoader:
         
         for narrative, dialogue in zip(examples['narrative'], examples['dialogue']):
             text = self.tokenizer.apply_chat_template(
-                self.__get_chat_template(narrative, dialogue, keep_assistance=True),
+                self.__get_chat_template(narrative, dialogue, keep_assistance=False),
                 tokenize=False,
                 add_generation_prompt=True
             )
