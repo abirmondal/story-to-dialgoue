@@ -7,7 +7,6 @@ The dataset is created by Kim et al. (2023) and is available at https://huggingf
 
 import json
 import random
-# from unsloth.chat_templates import get_chat_template
 from transformers import AutoTokenizer
 from datasets import load_dataset, load_dataset_builder, DatasetDict, Dataset
 from config.dir import SODA_HF_REPO
