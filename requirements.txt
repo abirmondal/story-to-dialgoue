@@ -14,3 +14,6 @@ langchain       # For language model chaining
 langchain[groq] # For GROQ support
 peft            # For parameter-efficient fine-tuning (used for LoRA finetuning)
 unsloth         # For unsloth library functionalities (used for QLoRA finetuning on llama models)
+xformers        # For efficient transformer implementations
+trl             # For training reinforcement learning models
+bitsandbytes    # For 8-bit optimizers and quantization
