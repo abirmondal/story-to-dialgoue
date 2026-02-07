@@ -6,11 +6,13 @@ Utility functions for model inferencing.
 
 import torch
 import warnings
+import threading
 from transformers import (
     AutoModelForSeq2SeqLM,
     AutoModelForCausalLM,
     AutoTokenizer,
-    AutoConfig
+    AutoConfig,
+    TextIteratorStreamer
 )
 from peft import PeftModel
 from config.dialogue_special_tokens import DIALOGUE_END_TOKEN, DEFAULT_SEPARATOR_TOKEN
@@ -117,6 +119,8 @@ class HFModelForInferencing:
             characters: list[str] | None = None,
             separator_token: str = DEFAULT_SEPARATOR_TOKEN,
             skip_special_tokens: bool = True,
+            use_streaming: bool = False,
+            stream_callback = None,
             **generation_kwargs
     ) -> str:
         """
@@ -132,6 +136,9 @@ class HFModelForInferencing:
             characters (list[str] | None): List of character names for turn-by-turn generation. Defaults to None.
             separator_token (str): Token used to separate dialogue turns. Defaults to DEFAULT_SEPARATOR_TOKEN.
             skip_special_tokens (bool): Whether to skip special tokens in the output. Defaults to True.
+            use_streaming (bool): Whether to use streaming generation for faster token output. Defaults to False.
+                stream_callback (callable | None): Callback function to receive streamed tokens. Called with each new token as str.
+                    If provided, the function will be called with incremental generated text chunks (prompt is not streamed). Defaults to None.
             generation_kwargs (dict): Additional keyword arguments to pass to the model's generate function.
                     
                     Possible keys include -
@@ -193,7 +200,7 @@ class HFModelForInferencing:
         
         full_dialogue_output = ""
 
-        def gen_one_output(prompt):
+        def gen_one_output(prompt, use_stream=False):
             input_ids = self.tokenizer(
                 prompt,
                 return_tensors="pt",
@@ -203,17 +210,48 @@ class HFModelForInferencing:
 
             input_len = input_ids.input_ids.shape[1]
             
-            output_ids = self.model.generate(
-                **input_ids,
-                max_new_tokens=max_new_tokens,
-                **generation_kwargs
-            )
+            if use_stream:
+                # Use streaming generation
+                streamer = TextIteratorStreamer(
+                    self.tokenizer,
+                    skip_special_tokens=skip_special_tokens,
+                    skip_prompt=True
+                )
+                generation_kwargs_with_streamer = {**generation_kwargs, "streamer": streamer}
+                
+                # Run generation in a separate thread
+                thread = threading.Thread(
+                    target=self.model.generate,
+                    kwargs={
+                        **input_ids,
+                        "max_new_tokens": max_new_tokens,
+                        **generation_kwargs_with_streamer
+                    }
+                )
+                thread.start()
+                
+                # Collect streamed output
+                generated_text = ""
+                for text in streamer:
+                    generated_text += text
+                    if stream_callback:
+                        stream_callback(text)
+                
+                thread.join()
+                return generated_text
+            else:
+                # Original non-streaming generation
+                output_ids = self.model.generate(
+                    **input_ids,
+                    max_new_tokens=max_new_tokens,
+                    **generation_kwargs
+                )
 
-            generated_text = self.tokenizer.decode(
-                output_ids[0][input_len if self.__is_casual else 0:],
-                skip_special_tokens=skip_special_tokens
-            )
-            return generated_text
+                generated_text = self.tokenizer.decode(
+                    output_ids[0][input_len if self.__is_casual else 0:],
+                    skip_special_tokens=skip_special_tokens
+                )
+                return generated_text
         
         with torch.no_grad():            
             if gen_turn_by_turn:
@@ -225,7 +263,7 @@ class HFModelForInferencing:
                     else:
                         prompt = narrative + separator_token + current_character + ":"
 
-                    generated_text = gen_one_output(prompt)
+                    generated_text = gen_one_output(prompt, use_stream=use_streaming)
 
                     if skip_special_tokens == False:
                         # When not skipping special tokens, we need to handle the dialogue end token
@@ -250,6 +288,6 @@ class HFModelForInferencing:
                     
                     dialogue_history += f"{current_character}: " + cleaned_turn + separator_token
             else:
-                full_dialogue_output = gen_one_output(prompt)                
+                full_dialogue_output = gen_one_output(prompt, use_stream=use_streaming)                
 
         return full_dialogue_output.strip()
