@@ -11,6 +11,7 @@ from transformers import AutoTokenizer
 from datasets import load_dataset, load_dataset_builder, DatasetDict, Dataset
 from config.dir import SODA_HF_REPO
 from config.dialogue_special_tokens import DIALOGUE_END_TOKEN, DEFAULT_SEPARATOR_TOKEN
+from config.llama_config import get_chat_template
 
 class SODADataLoader:
     """
@@ -589,27 +590,6 @@ class SODADataLoader:
         self.chat_template = chat_template
         self.dataset_info['params']['chat_template'] = chat_template
 
-    def __get_chat_template(self, narrative: str, dialogue: str, keep_assistance: bool = True) -> list:
-        """
-        Retrieves the chat template based on the specified type.
-
-        Args:
-            narrative (str): The narrative text.
-            dialogue (str): The dialogue text.
-            keep_assistance (bool): Whether to keep the assistance role in the template.
-
-        Returns:
-            list: The chat template as a list of dictionaries.
-        """
-        template = [
-            {"role": "system", "content": "Convert this story into a dialogue."},
-            {"role": "user", "content": f"Narrative: {narrative}"},
-            {"role": "assistant", "content": dialogue}
-        ]
-        if not keep_assistance:
-            template = template[:-1]
-        return template        
-
     def formatting_prompts(self, examples: Dataset) -> dict:
         """
         Applies LLaMA-style chat formatting to the dataset. Not used on test dataset.
@@ -627,7 +607,7 @@ class SODADataLoader:
         
         for narrative, dialogue in zip(examples['narrative'], examples['dialogue']):
             text = self.tokenizer.apply_chat_template(
-                self.__get_chat_template(narrative, dialogue, keep_assistance=True),
+                get_chat_template(narrative, dialogue, keep_assistance=True),
                 tokenize=False,
                 add_generation_prompt=False
             )
@@ -652,7 +632,7 @@ class SODADataLoader:
         
         for narrative, dialogue in zip(examples['narrative'], examples['dialogue']):
             text = self.tokenizer.apply_chat_template(
-                self.__get_chat_template(narrative, dialogue, keep_assistance=False),
+                get_chat_template(narrative, dialogue, keep_assistance=False),
                 tokenize=False,
                 add_generation_prompt=True
             )
