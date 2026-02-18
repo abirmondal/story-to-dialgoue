@@ -109,7 +109,6 @@ class HFModelForInferencing:
             if merge_lora:
                 self.model = self.model.merge_and_unload()
 
-        self.model.to(self.device)
         self.model.eval()
 
     def _validate_generation_kwargs(self, gen_turn_by_turn: bool, generation_kwargs: dict):
