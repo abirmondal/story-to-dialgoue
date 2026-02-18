@@ -1,4 +1,11 @@
 {
+    "Llama-3.2-1B-QLoRA": {
+        "full-dialogue": {
+            "hf-commit-id": "e433a19747f5711e6d526c770513101946a056cc",
+            "hf-org-model-path": "meta-llama/Llama-3.2-1B-QLoRA",
+            "hf-ft-model-path": "abirmondalind/story2dialogue-SODA-Llama3.2-1B-QLoRA"
+        }
+    },
     "BART-LoRA": {
         "turn-by-turn": {
             "hf-commit-id": "5d671360acad574afac587e3b8e893a7e12ed631",
