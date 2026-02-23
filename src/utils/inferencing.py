@@ -254,6 +254,7 @@ class HFModelForInferencing:
             max_new_tokens: int = 512,
             prefix_prompt: str | None = None,
             gen_turn_by_turn: bool = False,
+            keep_itbt_progress_bar: bool = True,
             max_turns: int | None = None,
             characters: list[str] | None = None,
             separator_token: str = DEFAULT_SEPARATOR_TOKEN,
@@ -271,6 +272,7 @@ class HFModelForInferencing:
             max_new_tokens (int): Maximum number of new tokens to generate. Defaults to 512.
             prefix_prompt (str | None): Optional prefix to prepend to the input text. Defaults to None.
             gen_turn_by_turn (bool): Whether to generate dialogue interactively turn-by-turn (Seq2Seq models only). Defaults to False.
+            keep_itbt_progress_bar (bool): Whether to keep the progress bar for turn-by-turn generation after completion. Defaults to True, means it will remain visible.
             max_turns (int | None): Maximum number of turns to generate if `gen_turn_by_turn` is True. Defaults to None.
             characters (list[str] | None): List of character names for turn-by-turn generation. Required if `gen_turn_by_turn` is True. Defaults to None.
             separator_token (str): Token used to separate dialogue turns in history. Defaults to `DEFAULT_SEPARATOR_TOKEN`.
@@ -334,7 +336,7 @@ class HFModelForInferencing:
             full_dialogue_output = ""
 
             iterator = range(max_turns)
-            iterator = tqdm(iterator, desc="Generating Turns", unit="turn")
+            iterator = tqdm(iterator, desc="Generating Turns", unit="turn", leave=keep_itbt_progress_bar)
 
             for turn_index in iterator:
                 current_character = characters[turn_index % len(characters)]
