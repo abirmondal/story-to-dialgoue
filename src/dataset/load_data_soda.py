@@ -34,7 +34,7 @@ class SODADataLoader:
             min_story_length: int | None = None,
             max_story_length: int | None = None,
             show_dataset_info_after_load: bool = True,
-            tokenizer: AutoTokenizer | None = None
+            keep_speakers_col: bool = False
         ) -> None:
         """
         Initializes the SODADataLoader with specified parameters.
@@ -55,7 +55,7 @@ class SODADataLoader:
             min_story_length (int | None): Minimum number of words in the `narrative` feature to retain an example. If `None`, no minimum is applied.
             max_story_length (int | None): Maximum number of words in the `narrative` feature to retain an example. If `None`, no maximum is applied.
             show_dataset_info_after_load (bool): If `True`, displays dataset information including feature details after loading. Default is `True`.
-            tokenizer (AutoTokenizer | None): Optional tokenizer to use for formatting prompts. If `None`, no prompt formatting is applied.
+            keep_speakers_col (bool): If `True`, retains the `speakers` column in the dataset even after joining with `narrative` or `dialogue`. Default is `False`.
         """
         if data_types is None or len(data_types) == 0:
             raise ValueError("data_types must be a non-empty list containing any of 'train', 'test', 'validation'.")
@@ -129,7 +129,8 @@ class SODADataLoader:
             join_with=join_with,
             join_dialogue_and_speakers=join_dialogue_and_speakers,
             add_characters_in_narrative=add_characters_in_narrative,
-            add_turns_count_in_narrative=add_turns_count_in_narrative
+            add_turns_count_in_narrative=add_turns_count_in_narrative,
+            keep_speakers_col=keep_speakers_col
         )
 
         # populate minimal metadata (counts, columns). heavy stats are computed lazily on demand
@@ -137,18 +138,15 @@ class SODADataLoader:
         if show_dataset_info_after_load:
             self.show_dataset_info(show_features=True)
 
-    def __load_data(self, splits: list[str], features: list[str], percent_of_all_splits: float | None = None, samples_per_split: int | None = None) -> DatasetDict:
+    def __load_data(
+            self,
+            splits: list[str],
+            features: list[str],
+            percent_of_all_splits: float | None = None,
+            samples_per_split: int | None = None
+        ) -> DatasetDict:
         """
         Loads the SODA dataset from the Hugging Face repository.
-
-        Args:
-            splits (list): List of dataset splits to load. Options are `train`, `test`, `validation`.
-            features (list): List of features to retain from the dataset. For all features, use `['all']`.
-            percent_of_all_splits (float | None): Percentage of each split to load (between 0 and 100). Default is `None`.
-            samples_per_split (int | None): Number of samples to load per split. If specified, overrides `percent_of_all_splits`. Default is `None`.
-
-        Returns:
-            DatasetDict: A dictionary containing the specified splits of the dataset.
         """
         dataset = {}
         for split in splits:
@@ -181,7 +179,8 @@ class SODADataLoader:
             join_with: str | None = None,
             join_dialogue_and_speakers: bool = False,
             add_characters_in_narrative: bool = False,
-            add_turns_count_in_narrative: bool = False
+            add_turns_count_in_narrative: bool = False,
+            keep_speakers_col: bool = False
         ) -> DatasetDict:
         """
         Preprocesses the SODA dataset by selecting specified splits and features, and optionally joining features.
@@ -236,14 +235,18 @@ class SODADataLoader:
                                 context += f"{speaker}: {utterance}{separator_token}"
 
                         return {"narrative": new_narratives, "dialogue": new_dialogues}
-                    split_data = split_data.map(unroll_dialogue_speakers, remove_columns=['speakers'], desc=f"Unrolling dialogue and speakers for {split} split", batched=True)
+                    split_data = split_data.map(unroll_dialogue_speakers, desc=f"Unrolling dialogue and speakers for {split} split", batched=True)
+                    if not keep_speakers_col:
+                        split_data = split_data.remove_columns(['speakers'])
                         
                 
                 if join_narrative_and_speakers:
                     def join_narrative_speakers(example):
                         example['narrative'] = f"{example['narrative']}{join_with}{example['speakers']}"
                         return example
-                    split_data = split_data.map(join_narrative_speakers, remove_columns=['speakers'], desc=f"Joining narrative and speakers for {split} split")
+                    split_data = split_data.map(join_narrative_speakers, desc=f"Joining narrative and speakers for {split} split")
+                    if not keep_speakers_col:
+                        split_data = split_data.remove_columns(['speakers'])
                 
                 if add_characters_in_narrative:
                     def add_characters(example):
@@ -270,7 +273,9 @@ class SODADataLoader:
                         # convert to a single string (separated by newlines) so it can be passed to models
                         example['dialogue'] = "\n".join(joined_lines)
                         return example
-                    split_data = split_data.map(join_dialogue_speakers, remove_columns=['speakers'], desc=f"Joining dialogue and speakers for {split} split")
+                    split_data = split_data.map(join_dialogue_speakers, desc=f"Joining dialogue and speakers for {split} split")
+                    if not keep_speakers_col:
+                        split_data = split_data.remove_columns(['speakers'])
 
                 processed_splits[split] = split_data
 
