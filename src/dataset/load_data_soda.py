@@ -202,6 +202,7 @@ class SODADataLoader:
                         """
                         new_narratives = []
                         new_dialogues = []
+                        new_speakers = []
 
                         if use_eos_as_eod:
                             # Append an extra turn with the last speaker and empty dialogue if using EOS as EOD
@@ -229,20 +230,21 @@ class SODADataLoader:
 
                                 new_narratives.append(new_narr)
                                 new_dialogues.append(new_diag)
+                                new_speakers.append(list(set(speakers)))
 
                                 # 2. Update the context for the *next* turn
                                 # The context now includes what was just said
                                 context += f"{speaker}: {utterance}{separator_token}"
 
-                        return {"narrative": new_narratives, "dialogue": new_dialogues}
+                        return {"narrative": new_narratives, "dialogue": new_dialogues, "speakers": new_speakers}
                     split_data = split_data.map(unroll_dialogue_speakers, desc=f"Unrolling dialogue and speakers for {split} split", batched=True)
                     if not keep_speakers_col:
-                        split_data = split_data.remove_columns(['speakers'])
-                        
+                        split_data = split_data.remove_columns(['speakers']) 
                 
                 if join_narrative_and_speakers:
                     def join_narrative_speakers(example):
                         example['narrative'] = f"{example['narrative']}{join_with}{example['speakers']}"
+                        example['speakers'] = list(set(example['speakers']))
                         return example
                     split_data = split_data.map(join_narrative_speakers, desc=f"Joining narrative and speakers for {split} split")
                     if not keep_speakers_col:
@@ -272,6 +274,7 @@ class SODADataLoader:
                             joined_lines.append(f"{speaker}: {utterance}")
                         # convert to a single string (separated by newlines) so it can be passed to models
                         example['dialogue'] = "\n".join(joined_lines)
+                        example['speakers'] = list(set(example['speakers']))
                         return example
                     split_data = split_data.map(join_dialogue_speakers, desc=f"Joining dialogue and speakers for {split} split")
                     if not keep_speakers_col:
