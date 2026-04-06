@@ -279,7 +279,7 @@ class HFModelForInferencing:
             skip_special_tokens (bool): Whether to remove special tokens from the output. Defaults to True.
             use_streaming (bool): Whether to yield tokens as they are generated using a streamer. Defaults to False.
             stream_callback (Optional[Callable[[str], None]]): Function called with each generated token string if `use_streaming` is True. Defaults to None.
-            **generation_kwargs: Additional keyword arguments passed to the model's `generate` method.
+            **generation_kwargs: Additional keyword arguments passed to the model's `generate` method (e.g., `do_sample`, `temperature`).
 
         Returns:
             str: The complete generated dialogue text.
