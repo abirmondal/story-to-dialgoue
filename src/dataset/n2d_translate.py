@@ -58,6 +58,11 @@ class N2DTranslate:
                 device_map="auto",
                 quantization_config=bnb_config
             )
+        elif device == "cuda":
+            self.model = AutoModelForImageTextToText.from_pretrained(
+                translation_model_name,
+                device_map="auto"
+            )
         else:
             self.model = AutoModelForImageTextToText.from_pretrained(
                 translation_model_name,
