@@ -42,7 +42,8 @@ class N2DTranslate:
             use_fp16: whether to load model weights in float16 (recommended on CUDA).
             attn_implementation: optional attention implementation for performance.
         """
-        self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = device or (
+            "cuda" if torch.cuda.is_available() else "cpu")
         self.source_lang_code = source_lang_code
         self.target_lang_code = target_lang_code
 
@@ -111,7 +112,8 @@ class N2DTranslate:
             clean_up_tokenization_spaces=True,
         )
         # Post-process removes the tags and cleans up extra spaces
-        translations = self.ip.postprocess_batch(decoded, lang=self.target_lang_code)
+        translations = self.ip.postprocess_batch(
+            decoded, lang=self.target_lang_code)
 
         return [t.strip() for t in translations]
 
@@ -135,7 +137,8 @@ class N2DTranslate:
             print(
                 f"Warning: Name mismatch. Expected {len(names)}, got {len(sanitized_translations)}")
             while len(sanitized_translations) < len(names):
-                sanitized_translations.append(names[len(sanitized_translations)])
+                sanitized_translations.append(
+                    names[len(sanitized_translations)])
 
         return dict(zip(names, sanitized_translations))
 
@@ -148,7 +151,7 @@ class N2DTranslate:
         """
         full_mapping: Dict[str, str] = {}
         for i in tqdm(range(0, len(names), batch_size), desc="Translating names"):
-            batch_names = names[i : i + batch_size]
+            batch_names = names[i: i + batch_size]
             batch_mapping = self._translate_name_batch(batch_names)
             full_mapping.update(batch_mapping)
 
@@ -162,13 +165,14 @@ class N2DTranslate:
         """
         translations = self._translate_batch([text], max_length=max_length)
         return translations[0] if translations else ""
-    
+
     def translate_texts(self, texts: List[str], batch_size: int = 16, max_length: int = 512) -> List[str]:
         """Translate a list of texts in batches and return the list of translated strings.
         """
         translated_texts: List[str] = []
         for i in tqdm(range(0, len(texts), batch_size), desc="Translating texts"):
-            batch_texts = texts[i : i + batch_size]
-            batch_translations = self._translate_batch(batch_texts, max_length=max_length)
+            batch_texts = texts[i: i + batch_size]
+            batch_translations = self._translate_batch(
+                batch_texts, max_length=max_length)
             translated_texts.extend(batch_translations)
         return translated_texts
