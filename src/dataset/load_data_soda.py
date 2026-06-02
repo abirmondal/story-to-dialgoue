@@ -33,6 +33,8 @@ class SODADataLoader:
             add_turns_count_in_narrative: bool = False,
             min_story_length: int | None = None,
             max_story_length: int | None = None,
+            min_dialogue_length: int | None = None,
+            max_dialogue_length: int | None = None,
             show_dataset_info_after_load: bool = True,
             keep_speakers_col: bool = False
         ) -> None:
@@ -54,6 +56,8 @@ class SODADataLoader:
             add_turns_count_in_narrative (bool): If `True`, adds turn count to the `narrative` feature.
             min_story_length (int | None): Minimum number of words in the `narrative` feature to retain an example. If `None`, no minimum is applied.
             max_story_length (int | None): Maximum number of words in the `narrative` feature to retain an example. If `None`, no maximum is applied.
+            min_dialogue_length (int | None): Minimum number of words in the `dialogue` feature to retain an example. If `None`, no minimum is applied.
+            max_dialogue_length (int | None): Maximum number of words in the `dialogue` feature to retain an example. If `None`, no maximum is applied.
             show_dataset_info_after_load (bool): If `True`, displays dataset information including feature details after loading. Default is `True`.
             keep_speakers_col (bool): If `True`, retains the `speakers` column in the dataset even after joining with `narrative` or `dialogue`. Default is `False`.
         """
@@ -96,6 +100,15 @@ class SODADataLoader:
             raise ValueError("max_story_length must be a positive integer or None")
         if min_story_length is not None and max_story_length is not None and min_story_length > max_story_length:
             raise ValueError("min_story_length cannot be greater than max_story_length")
+        
+        # validate dialogue length bounds
+        if min_dialogue_length is not None and min_dialogue_length <= 0:
+            raise ValueError("min_dialogue_length must be a positive integer or None")
+        if max_dialogue_length is not None and max_dialogue_length <= 0:
+            raise ValueError("max_dialogue_length must be a positive integer or None")
+        if min_dialogue_length is not None and max_dialogue_length is not None and min_dialogue_length > max_dialogue_length:
+            raise ValueError("min_dialogue_length cannot be greater than max_dialogue_length")
+
         # store small config params centrally (avoid setting as many self.* attributes)
         self.dataset_info: dict = {
             'params': {
@@ -112,6 +125,8 @@ class SODADataLoader:
                 'add_turns_count_in_narrative': add_turns_count_in_narrative,
                 'min_story_length': min_story_length,
                 'max_story_length': max_story_length,
+                'min_dialogue_length': min_dialogue_length,
+                'max_dialogue_length': max_dialogue_length,
                 'join_with': join_with
             },
             'splits': {}
@@ -120,6 +135,7 @@ class SODADataLoader:
         # load, filter and preprocess using local params and dataset_info
         dataset = self.__load_data(splits=data_types, features=use_features, percent_of_all_splits=percent_of_all_splits, samples_per_split=samples_per_split)
         dataset = self.__filter_by_story_length(dataset, min_story_length=min_story_length, max_story_length=max_story_length)
+        dataset = self.__filter_by_dialogue_length(dataset, min_dialogue_length=min_dialogue_length, max_dialogue_length=max_dialogue_length)
         self.dataset = self.__preprocess_data(
             dataset=dataset,
             unroll_dialogue_and_speakers=unroll_dialogue_and_speakers,
@@ -359,6 +375,47 @@ class SODADataLoader:
                 processed[split] = filtered
             else:
                 # keep as-is when no narrative field to evaluate
+                processed[split] = data
+
+        return DatasetDict(processed)
+    
+    def __filter_by_dialogue_length(self, dataset: DatasetDict, min_dialogue_length: int | None = None, max_dialogue_length: int | None = None) -> DatasetDict:
+        """
+        Filters examples in the dataset splits based on the number of words in the `dialogue` feature.
+        The filter is on each individual dialogue and not the total words across all dialogues in a sample.
+
+        Args:
+            dataset (DatasetDict): The dataset to filter.
+            min_dialogue_length (int | None): Minimum number of words (inclusive). If None, no minimum applied.
+            max_dialogue_length (int | None): Maximum number of words (inclusive). If None, no maximum applied.
+
+        Returns:
+            DatasetDict: A new DatasetDict containing only examples within the specified bounds.
+        """
+        # If neither bound is provided, return dataset unchanged
+        if min_dialogue_length is None and max_dialogue_length is None:
+            return dataset
+
+        processed = {}
+
+        def _within_bounds(example):
+            # If dialogue isn't present, exclude the example
+            if 'dialogue' not in example or example['dialogue'] is None:
+                return False
+            dialogue_lengths = list(map(len, example['dialogue']))
+            if min_dialogue_length is not None and min(dialogue_lengths) < min_dialogue_length:
+                return False
+            if max_dialogue_length is not None and max(dialogue_lengths) > max_dialogue_length:
+                return False
+            return True
+
+        for split, data in dataset.items():
+            # Only attempt to filter splits that have 'dialogue'
+            if 'dialogue' in data.column_names:
+                filtered = data.filter(lambda example: _within_bounds(example), desc=f"Filtering {split} split by dialogue length")
+                processed[split] = filtered
+            else:
+                # keep as-is when no dialogue field to evaluate
                 processed[split] = data
 
         return DatasetDict(processed)
